@@ -1,27 +1,25 @@
 """
 Example Experimentalist
 """
+import itertools
+import random
+from typing import Callable, Dict, Union
+
 import numpy as np
 import pandas as pd
-import random
-import itertools
-
-from typing import Union, Dict, Callable
 
 from autora.variable import VariableCollection
 
 
-def pool(
-        variables: VariableCollection,
-        num_samples: int = 1) -> pd.DataFrame:
+def pool(variables: VariableCollection, num_samples: int = 1) -> pd.DataFrame:
     raise NotImplementedError
 
 
 def sample(
-        conditions: Union[pd.DataFrame, np.ndarray],
-        reference_conditions: Union[pd.DataFrame, np.ndarray],
-        num_samples: int = 1,
-        less_then: Dict[str, Callable[[any, any], bool]] = None,
+    conditions: Union[pd.DataFrame, np.ndarray],
+    reference_conditions: Union[pd.DataFrame, np.ndarray],
+    num_samples: int = 1,
+    less_then: Dict[str, Callable[[any, any], bool]] = None,
 ) -> pd.DataFrame:
     """
     The Latin Hypercube Sampler samples from a pool of experimental conditions using
@@ -80,22 +78,32 @@ def sample(
         if less_then and col in less_then:
             bins[col] = sorted(
                 _conditions[col],
-                key=cmp_to_key(lambda x, y: -1 if less_then[col](x, y) else (1 if less_then[col](y, x) else 0))
+                key=cmp_to_key(
+                    lambda x, y: -1
+                    if less_then[col](x, y)
+                    else (1 if less_then[col](y, x) else 0)
+                ),
             )
         else:
             bins[col] = sorted(_conditions[col])
 
     # Create the intervals for each column
     for key in bins:
-        bins[key] = [bins[key][i:i + len_bins] for i in range(0, len(bins[key]), len_bins)]
+        bins[key] = [
+            bins[key][i : i + len_bins] for i in range(0, len(bins[key]), len_bins)
+        ]
 
     # Create the hypercubes with all possible combinations
-    _hypercubes = [dict(zip(bins.keys(), values)) for values in itertools.product(*bins.values())]
+    _hypercubes = [
+        dict(zip(bins.keys(), values)) for values in itertools.product(*bins.values())
+    ]
 
     # Filter out hypercubes that contain no conditions
     condition_dicts = [row.to_dict() for i, row in _conditions.iterrows()]
 
-    reference_condition_dict = [row.to_dict() for i, row in _reference_conditions.iterrows()]
+    reference_condition_dict = [
+        row.to_dict() for i, row in _reference_conditions.iterrows()
+    ]
 
     hypercubes = []
     for hc in _hypercubes:
@@ -113,7 +121,7 @@ def sample(
                 if _elem_in_hypercube(ref, hc, less_then):
                     sum += 1
                     refs += 1
-        hypercube_counts.append({'hypercube': hc, 'samples': sum})
+        hypercube_counts.append({"hypercube": hc, "samples": sum})
         if refs >= len(reference_condition_dict):
             skip = True
 
@@ -123,14 +131,14 @@ def sample(
     idx = 0
     while n_to_sample > 0:
 
-        _hypercubes = [hc for hc in hypercube_counts if hc['samples'] == idx]
+        _hypercubes = [hc for hc in hypercube_counts if hc["samples"] == idx]
 
         if len(_hypercubes) <= n_to_sample:
             samples.extend(_hypercubes)
             n_to_sample -= len(_hypercubes)
             for hc in hypercube_counts:
-                if hc['samples'] == idx:
-                    hc['samples'] += 1
+                if hc["samples"] == idx:
+                    hc["samples"] += 1
             idx += 1
 
         else:
@@ -139,9 +147,11 @@ def sample(
 
     res = {}
     # sample a condition from each hypercube while ensuring that the condition is included in the conditions
-    print('sampling conditions...')
+    print("sampling conditions...")
     for hypercube in samples:
-        _sample = _sample_condition_from_hypercube(hypercube['hypercube'], condition_dicts)
+        _sample = _sample_condition_from_hypercube(
+            hypercube["hypercube"], condition_dicts
+        )
         for key in _sample:
             if key not in res:
                 res[key] = [_sample[key]]
@@ -152,10 +162,10 @@ def sample(
 
 
 def sample_experiment_data(
-        conditions: Union[pd.DataFrame, np.ndarray],
-        experiment_data: Union[pd.DataFrame, np.ndarray],
-        num_samples: int = 1,
-        less_then: Dict[str, Callable[[any, any], bool]] = None,
+    conditions: Union[pd.DataFrame, np.ndarray],
+    experiment_data: Union[pd.DataFrame, np.ndarray],
+    num_samples: int = 1,
+    less_then: Dict[str, Callable[[any, any], bool]] = None,
 ) -> pd.DataFrame:
     raise NotImplementedError
 
