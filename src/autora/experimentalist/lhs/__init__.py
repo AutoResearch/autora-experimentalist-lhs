@@ -2,10 +2,10 @@
 Example Experimentalist
 """
 import itertools
-import random
-from typing import Any, Callable, Dict, Optional, Union
 import math
+import random
 from functools import cmp_to_key
+from typing import Any, Callable, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -13,9 +13,11 @@ import pandas as pd
 from autora.variable import VariableCollection
 
 
-def pool(variables: VariableCollection,
-         num_samples: int = 1,
-         random_state: Optional[int] = None) -> pd.DataFrame:
+def pool(
+    variables: VariableCollection,
+    num_samples: int = 1,
+    random_state: Optional[int] = None,
+) -> pd.DataFrame:
     """
     The Latin Hypercube Pooler generates a pool of experimental conditions
     using maximum and minumum values of each variable.
@@ -48,7 +50,6 @@ def pool(variables: VariableCollection,
     """
     sampler = random.Random(random_state)
 
-
     ivs = [v.name for v in variables.independent_variables]
     for var in variables.independent_variables:
         if var.value_range is None:
@@ -60,16 +61,19 @@ def pool(variables: VariableCollection,
 
     num_bins_per_variable = math.ceil(num_hypercubes ** (1 / len(ivs)))
 
-
     tmp = {}
     for var in variables.independent_variables:
         _max = var.value_range[1]
         _min = var.value_range[0]
         d = (_max - _min) / num_bins_per_variable
-        tmp[var.name] = [[_min + i*d, _min + (i+1)*d] for i in range(num_bins_per_variable)]
+        tmp[var.name] = [
+            [_min + i * d, _min + (i + 1) * d] for i in range(num_bins_per_variable)
+        ]
 
     # Create the hypercubes with all possible combinations
-    hypercubes = [dict(zip(tmp.keys(), values)) for values in itertools.product(*tmp.values())]
+    hypercubes = [
+        dict(zip(tmp.keys(), values)) for values in itertools.product(*tmp.values())
+    ]
 
     sampled_hypercubes = []
     remaining_samples = num_samples
@@ -87,19 +91,25 @@ def pool(variables: VariableCollection,
     for sample in sampled_hypercubes:
         for key in sample:
             if key not in res:
-                res[key] = [sampler.random() * (sample[key][1] - sample[key][0]) + sample[key][0]]
+                res[key] = [
+                    sampler.random() * (sample[key][1] - sample[key][0])
+                    + sample[key][0]
+                ]
             else:
-                res[key].append(sampler.random() * (sample[key][1] - sample[key][0]) + sample[key][0])
+                res[key].append(
+                    sampler.random() * (sample[key][1] - sample[key][0])
+                    + sample[key][0]
+                )
 
     return pd.DataFrame(res)
 
 
 def sample(
-        conditions: Union[pd.DataFrame, np.ndarray],
-        reference_conditions: Union[pd.DataFrame, np.ndarray],
-        num_samples: int = 1,
-        less_then: Optional[Dict[str, Callable[[Any, Any], bool]]] = None,
-        random_state: Optional[int] = None,
+    conditions: Union[pd.DataFrame, np.ndarray],
+    reference_conditions: Union[pd.DataFrame, np.ndarray],
+    num_samples: int = 1,
+    less_then: Optional[Dict[str, Callable[[Any, Any], bool]]] = None,
+    random_state: Optional[int] = None,
 ) -> pd.DataFrame:
     """
     The Latin Hypercube Sampler samples from a pool of experimental conditions using
@@ -173,7 +183,7 @@ def sample(
     # Create the intervals for each column
     for key in bins:
         bins[key] = [
-            bins[key][i: i + len_bins] for i in range(0, len(bins[key]), len_bins)
+            bins[key][i : i + len_bins] for i in range(0, len(bins[key]), len_bins)
         ]
 
     # Create the hypercubes with all possible combinations
@@ -250,10 +260,10 @@ def sample(
 
 
 def sample_experiment_data(
-        conditions: Union[pd.DataFrame, np.ndarray],
-        experiment_data: Union[pd.DataFrame, np.ndarray],
-        num_samples: int = 1,
-        less_then: Optional[Dict[str, Callable[[Any, Any], bool]]] = None,
+    conditions: Union[pd.DataFrame, np.ndarray],
+    experiment_data: Union[pd.DataFrame, np.ndarray],
+    num_samples: int = 1,
+    less_then: Optional[Dict[str, Callable[[Any, Any], bool]]] = None,
 ) -> pd.DataFrame:
     raise NotImplementedError
 
@@ -302,7 +312,7 @@ def _sample_condition_from_hypercube(hypercube, conditions, sampler=None):
     Returns:
         list: A list of sampled conditions, one for each hypercube.
     """
-    if sampler == None:
+    if sampler is None:
         sampler = random.Random()
     _conditions = conditions.copy()
     _sample = sampler.choice(_conditions)
