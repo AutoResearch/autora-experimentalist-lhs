@@ -3,7 +3,7 @@ Example Experimentalist
 """
 import itertools
 import random
-from typing import Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ def sample(
     conditions: Union[pd.DataFrame, np.ndarray],
     reference_conditions: Union[pd.DataFrame, np.ndarray],
     num_samples: int = 1,
-    less_then: Dict[str, Callable[[any, any], bool]] = None,
+    less_then: Optional[Dict[str, Callable[[Any, Any], bool]]] = None,
 ) -> pd.DataFrame:
     """
     The Latin Hypercube Sampler samples from a pool of experimental conditions using
@@ -34,23 +34,24 @@ def sample(
             Attention: `conditions` is a field of the standard state
         reference_conditions: The sampler might use reference conditons
         num_samples: number of experimental conditions to select
-        less_then: For each column in the conditions, an order function can be defined to use for stratification
+        less_then: For each column in the conditions, an order function can be defined to
+            use for stratification
     Returns:
         Sampled pool of experimental conditions
 
     Example:
         >>> import random
         >>> random.seed(42)
-        >>> conditions = pd.DataFrame({
+        >>> cnd = pd.DataFrame({
         ...    'a': [1, 2, 3, 4, 5],
         ...    'b': [1, 2, 3, 4, 5]}
         ... )
-        >>> reference_conditions = pd.DataFrame({
+        >>> ref_cnd = pd.DataFrame({
         ...    'a': [1, 2],
         ...    'b': [1, 2]}
         ... )
-        >>> num_samples = 2
-        >>> _sample(conditions, reference_conditions, num_samples)
+        >>> n = 2
+        >>> sample(cnd, ref_cnd, n)
            a  b
         0  5  5
         1  4  4
@@ -75,14 +76,19 @@ def sample(
     # Create sorted lists
     bins = {}
     for col in _conditions.columns:
-        if less_then and col in less_then:
+        if less_then is not None and col in less_then:
+            _less_then = less_then[col]
+
+            def compare(x, y):
+                if _less_then(x, y):
+                    return -1
+                elif _less_then(y, x):
+                    return 1
+                return 0
+
             bins[col] = sorted(
                 _conditions[col],
-                key=cmp_to_key(
-                    lambda x, y: -1
-                    if less_then[col](x, y)
-                    else (1 if less_then[col](y, x) else 0)
-                ),
+                key=cmp_to_key(compare),
             )
         else:
             bins[col] = sorted(_conditions[col])
@@ -115,13 +121,13 @@ def sample(
     refs = 0
     skip = False
     for hc in hypercubes:
-        sum = 0
+        _sum = 0
         if not skip:
             for ref in reference_condition_dict:
                 if _elem_in_hypercube(ref, hc, less_then):
-                    sum += 1
+                    _sum += 1
                     refs += 1
-        hypercube_counts.append({"hypercube": hc, "samples": sum})
+        hypercube_counts.append({"hypercube": hc, "samples": _sum})
         if refs >= len(reference_condition_dict):
             skip = True
 
@@ -138,6 +144,10 @@ def sample(
             n_to_sample -= len(_hypercubes)
             for hc in hypercube_counts:
                 if hc["samples"] == idx:
+                    if not isinstance(hc["samples"], (int, float)):
+                        raise TypeError(
+                            f"Unexpected type for hc['samples']: {type(hc['samples'])}"
+                        )
                     hc["samples"] += 1
             idx += 1
 
@@ -146,8 +156,8 @@ def sample(
             break
 
     res = {}
-    # sample a condition from each hypercube while ensuring that the condition is included in the conditions
-    print("sampling conditions...")
+    # sample a condition from each hypercube while ensuring that the condition is
+    # included in the conditions
     for hypercube in samples:
         _sample = _sample_condition_from_hypercube(
             hypercube["hypercube"], condition_dicts
@@ -165,7 +175,7 @@ def sample_experiment_data(
     conditions: Union[pd.DataFrame, np.ndarray],
     experiment_data: Union[pd.DataFrame, np.ndarray],
     num_samples: int = 1,
-    less_then: Dict[str, Callable[[any, any], bool]] = None,
+    less_then: Optional[Dict[str, Callable[[Any, Any], bool]]] = None,
 ) -> pd.DataFrame:
     raise NotImplementedError
 
@@ -192,7 +202,7 @@ def _elem_in_hypercube(el, hypercube, less_then=None):
     for key, value in el.items():
         _min = hypercube[key][0]
         _max = hypercube[key][-1]
-        if not less_then or not key in less_then:
+        if not less_then or key not in less_then:
             if not _min <= value <= _max:
                 return False
         else:
@@ -206,8 +216,10 @@ def _sample_condition_from_hypercube(hypercube, conditions):
     Samples a valid condition from each hypercube, ensuring it exists in the allowed conditions.
 
     Args:
-        hypercube (list): List of hypercubes, where each hypercube is a dict with 'hypercube' and 'samples' keys.
-        conditions (list): List of allowed conditions (each as a dictionary {a: value, b: value, c: value}).
+        hypercube (list): List of hypercubes, where each hypercube is a dict with
+        'hypercube' and 'samples' keys.
+        conditions (list): List of allowed conditions
+            (each as a dictionary {a: value, b: value, c: value}).
 
     Returns:
         list: A list of sampled conditions, one for each hypercube.
